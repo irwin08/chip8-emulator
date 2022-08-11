@@ -105,6 +105,12 @@ void emulateCycle(Chip8 *chip8)
             chip8->pc += 2;
             break;
 
+        case 0x2000: // 2NNN calls subroutine at NNN
+            chip8->stack[chip8->sp] = chip8->pc;
+            chip8->sp++;
+            chip8->pc = chip8->opcode & 0x0FFF;
+            break;
+
         // not enough info in first 4 bits when opcode starts with 0 -- have to go deeper
         case 0x0000:
             switch (chip8->opcode & 0x000F)
@@ -115,6 +121,39 @@ void emulateCycle(Chip8 *chip8)
                     break;
                 default:
                     printf("Unknown opcode: [0x0000]: 0x%X\n", chip8->opcode);
+            }
+            break;
+
+        // not enough info in first 4 bits when opcode starts with 8 -- have to go deeper
+        case 0x8000:
+            switch (chip8->opcode & 0x000F)
+            {
+                case 0x0001:
+                    break;
+                case 0x0002:
+                    break;
+                case 0x0003:
+                    break;
+                case 0x0004: // 8XY4 Adds VX to VY, VF set to 1 when there is a carry, 0 when not
+                    if (chip8->V[(chip8->opcode & 0x00F0) >> 4] > (0xFF - chip8->V[(chip8->opcode & 0x0F00) >> 8]))
+                        chip8->V[0xF] = 1;
+                    else
+                        chip8->V[0xF] = 0;
+                    chip8->V[(chip8->opcode & 0x0F00) >> 8] += chip8->V[(chip8->opcode & 0x00F0) >> 4];
+                    chip8->pc += 2;
+                    break;
+                default:
+                    printf("Unknown opcode: [0x8000]: 0x%X\n", chip8->opcode);
+            }
+            break;
+        case 0xF000:
+            switch (chip8->opcode & 0x0033)
+            {
+                case 0x0033: // Store binary-coded representation of VX, with most significant of digits in I, middle I+1 and last I+2
+                    chip8->memory[chip8->I] = (int)chip8->V[(chip8->opcode & 0x0F00) >> 8] % 10;
+                    (chip8->memory[chip8->I + 1] = (int)chip8->V[(chip8->opcode & 0x0F00) >> 8] / 10) % 10;
+                    (chip8->memory[chip8->I + 2] = (int)chip8->V[(chip8->opcode & 0x0F00) >> 8] / 100) % 10;
+                    break;
             }
             break;
 
