@@ -20,6 +20,7 @@ typedef struct Chip8 {
 
     // graphics pixels
     unsigned char gfx[64 * 32];
+    unsigned short drawFlag;
 
     // timers that count at 60Hz
     unsigned char delay_timer;
@@ -61,6 +62,7 @@ Chip8 initialize()
     chip8.opcode = 0;
     chip8.I = 0;
     chip8.sp = 0;
+    chip8.drawFlag = 0;
 
     // clear display
     // clear stack
@@ -109,6 +111,50 @@ void emulateCycle(Chip8 *chip8)
             chip8->stack[chip8->sp] = chip8->pc;
             chip8->sp++;
             chip8->pc = chip8->opcode & 0x0FFF;
+            break;
+
+        case 0xD000: // DXYN draws sprite at coords (VX, VY) with width of 8 pixels, height of N pixels,
+        // loading sprite from memory location I
+            unsigned short x = V[(opcode & 0x0F00) >> 8];
+            unsigned short y = V[(opcode & 0x00F0) >> 4];
+            unsigned short height = opcode & 0x000F;
+            unsigned short pixel;
+
+            // register will hold collision flag
+            V[0xF] = 0;
+            for (int yline = 0; yline < height; yline++)
+            {
+                pixel = chip8->memory[I + yline];
+                for (int xline = 0; xline < 8; xline++)
+                {
+                    if ((pixel & (0x80 >> xline)) != 0)
+                    {
+                        // check if current display pixel is already set - flag collision
+                        if (chip8->gfx[(x + xline + ((y + yline) * 64))] == 1)
+                            V[0xF] = 1;
+                        // flip pixel
+                        chip8->gfx[(x + xline + ((y + yline) * 64))] ^= 1;
+                    }
+                }
+            }
+
+            chip8->drawFlag = 1;
+            chip8->pc += 2;
+
+            break;
+
+        case 0xE000:
+
+            switch (opcode & 0x00FF)
+            {
+                case 0x009E: // EX9E skips next instruction if key stored in VX is pressed
+                    if (chip8->key[V[(chip8->opcode & 0x0F00) >> 8]] != 0)
+                        chip8->pc += 4;
+                    else
+                        chip8->pc += 2;
+                    break;
+            }
+
             break;
 
         // not enough info in first 4 bits when opcode starts with 0 -- have to go deeper
