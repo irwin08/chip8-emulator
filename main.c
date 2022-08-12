@@ -10,6 +10,7 @@ int main()
 
     SDL_Window *window = NULL;
     SDL_Renderer *renderer = NULL;
+    SDL_Event e;
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
@@ -17,18 +18,47 @@ int main()
         return -1;
     }
 
-    SDL_CreateWindowAndRenderer(640, 480, 0, &window, &renderer);
+    int scale = 10;
+
+    SDL_CreateWindowAndRenderer(64*scale, 32*scale, 0, &window, &renderer);
+    SDL_RenderSetScale(renderer, scale, scale);
     
     Chip8 chip8 = initialize();
     //loadGame(&chip8, "");
 
-    for (;;)
+    int quit = 0;
+
+    while (!quit)
     {
+        // user input
+
+        while (SDL_PollEvent(&e) != 0)
+        {
+            if (e.type == SDL_QUIT)
+            {
+                quit = 1;
+            }
+            else if (e.type == SDL_KEYDOWN)
+            {
+                switch (e.key.keysym.sym)
+                {
+                    case SDLK_UP:
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+
+        // cpu stuff
+
+        // drawing
+
         SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
         SDL_RenderClear(renderer);
         SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
 
-        SDL_RenderDrawLine(renderer, 5, 5, 35, 35);
+        SDL_RenderDrawPoint(renderer, 5, 5);
 
         SDL_RenderPresent(renderer);
     }
