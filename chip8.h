@@ -103,35 +103,38 @@ void emulateCycle(Chip8 *chip8)
     switch (chip8->opcode & 0xF000)
     {
         case 0xA000: // ANNN sets I to NNN
+        {
             chip8->I = chip8->opcode & 0x0FFF; // gets remaining opcode info for assignment
             chip8->pc += 2;
             break;
-
+        }
         case 0x2000: // 2NNN calls subroutine at NNN
+        {
             chip8->stack[chip8->sp] = chip8->pc;
             chip8->sp++;
             chip8->pc = chip8->opcode & 0x0FFF;
             break;
-
+        }
         case 0xD000: // DXYN draws sprite at coords (VX, VY) with width of 8 pixels, height of N pixels,
         // loading sprite from memory location I
-            unsigned short x = V[(opcode & 0x0F00) >> 8];
-            unsigned short y = V[(opcode & 0x00F0) >> 4];
-            unsigned short height = opcode & 0x000F;
+        {
+            unsigned short x = chip8->V[(chip8->opcode & 0x0F00) >> 8];
+            unsigned short y = chip8->V[(chip8->opcode & 0x00F0) >> 4];
+            unsigned short height = chip8->opcode & 0x000F;
             unsigned short pixel;
 
             // register will hold collision flag
-            V[0xF] = 0;
+            chip8->V[0xF] = 0;
             for (int yline = 0; yline < height; yline++)
             {
-                pixel = chip8->memory[I + yline];
+                pixel = chip8->memory[chip8->I + yline];
                 for (int xline = 0; xline < 8; xline++)
                 {
                     if ((pixel & (0x80 >> xline)) != 0)
                     {
                         // check if current display pixel is already set - flag collision
                         if (chip8->gfx[(x + xline + ((y + yline) * 64))] == 1)
-                            V[0xF] = 1;
+                            chip8->V[0xF] = 1;
                         // flip pixel
                         chip8->gfx[(x + xline + ((y + yline) * 64))] ^= 1;
                     }
@@ -142,13 +145,14 @@ void emulateCycle(Chip8 *chip8)
             chip8->pc += 2;
 
             break;
+        }
 
         case 0xE000:
-
-            switch (opcode & 0x00FF)
+        {
+            switch (chip8->opcode & 0x00FF)
             {
                 case 0x009E: // EX9E skips next instruction if key stored in VX is pressed
-                    if (chip8->key[V[(chip8->opcode & 0x0F00) >> 8]] != 0)
+                    if (chip8->key[chip8->V[(chip8->opcode & 0x0F00) >> 8]] != 0)
                         chip8->pc += 4;
                     else
                         chip8->pc += 2;
@@ -156,9 +160,10 @@ void emulateCycle(Chip8 *chip8)
             }
 
             break;
-
+        }
         // not enough info in first 4 bits when opcode starts with 0 -- have to go deeper
         case 0x0000:
+        {
             switch (chip8->opcode & 0x000F)
             {
                 case 0x0000:
@@ -169,9 +174,10 @@ void emulateCycle(Chip8 *chip8)
                     printf("Unknown opcode: [0x0000]: 0x%X\n", chip8->opcode);
             }
             break;
-
+        }
         // not enough info in first 4 bits when opcode starts with 8 -- have to go deeper
         case 0x8000:
+        {
             switch (chip8->opcode & 0x000F)
             {
                 case 0x0001:
@@ -192,7 +198,9 @@ void emulateCycle(Chip8 *chip8)
                     printf("Unknown opcode: [0x8000]: 0x%X\n", chip8->opcode);
             }
             break;
+        }
         case 0xF000:
+        {
             switch (chip8->opcode & 0x0033)
             {
                 case 0x0033: // Store binary-coded representation of VX, with most significant of digits in I, middle I+1 and last I+2
@@ -202,10 +210,11 @@ void emulateCycle(Chip8 *chip8)
                     break;
             }
             break;
-
+        }
         default:
+        {
             printf("Unknown opcode: [0x0000]: 0x%X\n", chip8->opcode);
-        
+        }
     }
 
     // update timers
