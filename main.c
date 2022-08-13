@@ -11,7 +11,11 @@
 #include <unistd.h>
 #endif
 
-int main()
+static int quit = 0;
+
+int cpuThread(void *chip8Data);
+
+int main(int argc, char *argv[])
 {
 
     SDL_Window *window = NULL;
@@ -32,10 +36,7 @@ int main()
     Chip8 chip8 = initialize();
     //loadGame(&chip8, "");
 
-    int quit = 0;
-
-    int frame = 0;
-    time_t frame_start = 0;
+    SDL_Thread *threadID = SDL_CreateThread(cpuThread, "CPU Thread", (void *)&chip8);
 
     while (!quit)
     {
@@ -157,26 +158,6 @@ int main()
             }
         }
 
-        // cpu stuff
-
-        emulateCycle(&chip8);
-
-        frame++;
-        // naive 60Hz limit - should try to even out delay in future
-        if (frame >= 60)
-        {
-            int pollingDelay = difftime(time(NULL), frame_start) * 1000; // in milliseconds
-
-            #ifdef _WIN32
-            Sleep(pollingDelay);
-            #else
-            usleep(pollingDelay*1000);  // multiply by 1000 to get microseconds
-            #endif
-
-            frame = 0;
-            frame_start = time(NULL);
-        }
-
         // drawing
 
         SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
@@ -196,9 +177,40 @@ int main()
 
         SDL_RenderPresent(renderer);
     }
+    printf("QUITTING\n");
+    SDL_WaitThread( threadID, NULL );
+
+    
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+
+    return 0;
+}
+
+int cpuThread(void *chip8Data)
+{
+    Chip8 *chip8 = chip8Data;
+    int frame = 0;
+    int frame_start_ticks = SDL_GetTicks();
+
+    while (!quit)
+    { 
+        emulateCycle(chip8);
+
+        frame++;
+        // naive 60Hz limit - should try to even out delay in future
+        if (frame >= 60)
+        {
+            int pollingDelay = 1000 - (SDL_GetTicks() - frame_start_ticks);
+
+            if (pollingDelay > 0)
+                SDL_Delay(pollingDelay);
+
+            frame = 0;
+            frame_start_ticks = SDL_GetTicks();
+        }
+    }
 
     return 0;
 }
