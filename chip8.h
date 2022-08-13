@@ -65,6 +65,10 @@ Chip8 initialize()
     chip8.drawFlag = 0;
 
     // clear display
+    for (int i = 0; i < 64*32; i++)
+    {
+        chip8.gfx[i] = 0;
+    }
     // clear stack
     // clear registers V0-VF
     // clear memory
@@ -102,10 +106,29 @@ void emulateCycle(Chip8 *chip8)
     // decode opcode (0xF000 AND gets first four bits of two-byte opcode)
     switch (chip8->opcode & 0xF000)
     {
-        case 0xA000: // ANNN sets I to NNN
+        // not enough info in first 4 bits when opcode starts with 0 -- have to go deeper
+        case 0x0000:
         {
-            chip8->I = chip8->opcode & 0x0FFF; // gets remaining opcode info for assignment
-            chip8->pc += 2;
+            switch (chip8->opcode & 0x0FFF)
+            {
+                case 0x00E0: // 00E0 - clear display
+                    for (int i = 0; i < 64*32; i++)
+                            chip8->gfx[i] = 0;
+                    chip8->pc += 2;
+                    break;
+                case 0x00EE: // 00EE - return from subroutine
+                    chip8->sp--;
+                    chip8->pc = chip8->stack[chip8->sp] + 2;
+                    break;
+                default: // 0NNN - call machine code routine
+                    // todo
+                    printf("Unimplemented 0NNN\n");
+            }
+            break;
+        }
+        case 0x1000: // 1NNN - jumps to address NNN
+        {
+            chip8->pc = chip8->opcode & 0x0FFF;
             break;
         }
         case 0x2000: // 2NNN calls subroutine at NNN
@@ -113,6 +136,75 @@ void emulateCycle(Chip8 *chip8)
             chip8->stack[chip8->sp] = chip8->pc;
             chip8->sp++;
             chip8->pc = chip8->opcode & 0x0FFF;
+            break;
+        }
+        case 0x3000: // 3XNN skip next instruction if VX == NN
+            if (chip8->V[chip8->opcode & 0x0F00] == (chip8->opcode & 0x0FF))
+                chip8->pc += 4;
+            else
+                chip8->pc += 2;
+            break;
+        case 0x4000: // 4XNN skip next instruction if VX != NN
+            if (chip8->V[chip8->opcode & 0x0F00] != (chip8->opcode & 0x0FF))
+                chip8->pc += 4;
+            else
+                chip8->pc += 2;
+            break;
+        case 0x5000: // 5XYN skip next instruction if VX == VY
+            if (chip8->V[chip8->opcode & 0x0F00] == chip8->V[chip8->opcode & 0x00F0])
+                chip8->pc += 4;
+            else
+                chip8->pc += 2;
+            break;
+        case 0x6000: // 6XNN Sets VX to NN
+            chip8->V[chip8->opcode & 0x0F00] = (chip8->opcode & 0x00FF);
+            chip8->pc += 2;
+            break;
+        case 0x7000: // 7XNN VX += NN (carry flag not set)
+            chip8->V[chip8->opcode & 0x0F00] += (chip8->opcode & 0x00FF);
+            chip8->pc += 2;
+            break;
+        // not enough info in first 4 bits when opcode starts with 8 -- have to go deeper
+        case 0x8000:
+        {
+            switch (chip8->opcode & 0x000F)
+            {
+                case 0x0000: // 8XY0 VX = VY
+                    chip8->V[chip8->opcode & 0x0F00] = chip8->V[chip8->opcode & 0x00F0];
+                    chip8->pc += 2;
+                    break;
+                case 0x0001: // 8XY1 VX |= VY
+                    chip8->V[chip8->opcode & 0x0F00] |= chip8->V[chip8->opcode & 0x00F0];
+                    chip8->pc += 2;
+                    break;
+                case 0x0002: // 8XY2 VX &= VY
+                    chip8->V[chip8->opcode & 0x0F00] &= chip8->V[chip8->opcode & 0x0F00];
+                    chip8->pc += 2;
+                    break;
+                case 0x0003: // 8XY3 VX ^= VY
+                    chip8->V[chip8->opcode & 0x0F00] ^= chip8->V[chip8->opcode & 0x00F0];
+                    chip8->pc += 2;
+                    break;
+                case 0x0004: // 8XY4 Adds VX to VY, VF set to 1 when there is a carry, 0 when not
+                    if (chip8->V[(chip8->opcode & 0x00F0) >> 4] > (0xFF - chip8->V[(chip8->opcode & 0x0F00) >> 8]))
+                        chip8->V[0xF] = 1;
+                    else
+                        chip8->V[0xF] = 0;
+                    chip8->V[(chip8->opcode & 0x0F00) >> 8] += chip8->V[(chip8->opcode & 0x00F0) >> 4];
+                    chip8->pc += 2;
+                    break;
+                case 0x0005: // 8XY5 Subtracts VY from VX, VF is set to 0 when there is a borrow, 1 when not
+                    
+                    break;
+                default:
+                    printf("Unknown opcode: [0x8000]: 0x%X\n", chip8->opcode);
+            }
+            break;
+        }
+        case 0xA000: // ANNN sets I to NNN
+        {
+            chip8->I = chip8->opcode & 0x0FFF; // gets remaining opcode info for assignment
+            chip8->pc += 2;
             break;
         }
         case 0xD000: // DXYN draws sprite at coords (VX, VY) with width of 8 pixels, height of N pixels,
@@ -159,44 +251,6 @@ void emulateCycle(Chip8 *chip8)
                     break;
             }
 
-            break;
-        }
-        // not enough info in first 4 bits when opcode starts with 0 -- have to go deeper
-        case 0x0000:
-        {
-            switch (chip8->opcode & 0x000F)
-            {
-                case 0x0000:
-                    break;
-                case 0x000E:
-                    break;
-                default:
-                    printf("Unknown opcode: [0x0000]: 0x%X\n", chip8->opcode);
-            }
-            break;
-        }
-        // not enough info in first 4 bits when opcode starts with 8 -- have to go deeper
-        case 0x8000:
-        {
-            switch (chip8->opcode & 0x000F)
-            {
-                case 0x0001:
-                    break;
-                case 0x0002:
-                    break;
-                case 0x0003:
-                    break;
-                case 0x0004: // 8XY4 Adds VX to VY, VF set to 1 when there is a carry, 0 when not
-                    if (chip8->V[(chip8->opcode & 0x00F0) >> 4] > (0xFF - chip8->V[(chip8->opcode & 0x0F00) >> 8]))
-                        chip8->V[0xF] = 1;
-                    else
-                        chip8->V[0xF] = 0;
-                    chip8->V[(chip8->opcode & 0x0F00) >> 8] += chip8->V[(chip8->opcode & 0x00F0) >> 4];
-                    chip8->pc += 2;
-                    break;
-                default:
-                    printf("Unknown opcode: [0x8000]: 0x%X\n", chip8->opcode);
-            }
             break;
         }
         case 0xF000:
