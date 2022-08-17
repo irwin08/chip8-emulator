@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
     SDL_RenderSetScale(renderer, scale, scale);
     
     Chip8 chip8 = initialize();
-    //loadGame(&chip8, "");
+    loadGame(&chip8, "roms/pong.rom");
 
     SDL_Thread *threadID = SDL_CreateThread(cpuThread, "CPU Thread", (void *)&chip8);
 

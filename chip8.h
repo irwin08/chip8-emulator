@@ -93,7 +93,7 @@ Chip8 initialize()
         chip8.memory[i] = 0x00;
     }
     // load fontset
-    for (int i = 80; i < (80 + 80); i++)
+    for (int i = 0; i < 80; i++)
     {
         chip8.memory[i] = chip8_fontset[i];
     }
@@ -141,14 +141,14 @@ void emulateCycle(Chip8 *chip8)
         // not enough info in first 4 bits when opcode starts with 0 -- have to go deeper
         case 0x0000:
         {
-            switch (chip8->opcode & 0x0FFF)
+            switch (chip8->opcode & 0x000F)
             {
                 case 0x00E0: // 00E0 - clear display
                     for (int i = 0; i < 64*32; i++)
                             chip8->gfx[i] = 0;
                     chip8->pc += 2;
                     break;
-                case 0x00EE: // 00EE - return from subroutine
+                case 0x000E: // 00EE - return from subroutine
                     chip8->sp--;
                     chip8->pc = chip8->stack[chip8->sp] + 2;
                     break;
